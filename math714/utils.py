@@ -1,7 +1,33 @@
+__author__ = 'Josh Karpel'
+
+import os
 import functools
 import multiprocessing as mp
 import datetime as dt
 from copy import deepcopy
+
+import matplotlib.pyplot as plt
+
+
+def ensure_dir_exists(path):
+    """Ensure that the directory tree to the path exists."""
+    split_path = os.path.splitext(path)
+    if split_path[0] != path:  # path is file
+        make_path = os.path.dirname(split_path[0])
+    else:  # path is dir
+        make_path = split_path[0]
+    os.makedirs(make_path, exist_ok = True)
+
+
+def save_current_figure(name = 'img', target_dir = None, img_format = 'png', scale_factor = 1):
+    """Save the current matplotlib figure with the given name to the given folder."""
+    if target_dir is None:
+        target_dir = os.getcwd()
+    path = os.path.join(target_dir, '{}.{}'.format(name, img_format))
+
+    ensure_dir_exists(path)
+
+    plt.savefig(path, dpi = scale_factor * plt.gcf().dpi, bbox_inches = 'tight')
 
 
 def multi_map(function, targets, processes = None):
