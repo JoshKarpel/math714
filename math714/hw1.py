@@ -127,7 +127,7 @@ def plot_solution_comparison(solutions, analytic, **kwargs):
 
     axis.legend(loc = 'best', fontsize = 12)
 
-    utils.save_current_figure(name = 'solution_comparison_dt{}'.format(sol.delta_t), **kwargs)
+    utils.save_current_figure(name = 'solution_comparison_dt{}'.format(sol.delta_t), img_format = 'pdf', **kwargs)
 
     plt.close()
 
@@ -154,7 +154,7 @@ def plot_error_comparison(solvers, time_steps, final_errors, **kwargs):
 
     axis.legend(loc = 'best', fontsize = 12)
 
-    utils.save_current_figure(name = 'error_comparison', **kwargs)
+    utils.save_current_figure(name = 'error_comparison', img_format = 'pdf', **kwargs)
 
     plt.close()
 
@@ -192,8 +192,8 @@ if __name__ == '__main__':
         return (t ** 3) + np.exp(-100 * t)
 
     p_min = 1
-    p_max = 6
-    p_pts = 100
+    p_max = 5
+    p_pts = 50
     dt = np.around(np.logspace(-p_min, -p_max, num = p_pts), 7)
 
     make_plots(dt, [ForwardEuler, RungeKutta, BackwardEuler, Trapezoid], ode_p2, analytic_solution_p2, target_dir = OUT_DIR)
