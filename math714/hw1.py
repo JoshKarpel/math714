@@ -1,9 +1,10 @@
 __author__ = 'Josh Karpel'
 
 import os
+
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize as opt
-import matplotlib.pyplot as plt
 
 from math714 import utils
 
@@ -183,7 +184,6 @@ def make_plots(time_steps, solvers, ode, analytic, **kwargs):
 if __name__ == '__main__':
     OUT_DIR = os.path.join(os.getcwd(), 'hw1')
 
-
     def ode_p2(y, t):
         return (100 * ((t ** 3) - y)) + (3 * (t ** 2))
 
@@ -192,9 +192,10 @@ if __name__ == '__main__':
         return (t ** 3) + np.exp(-100 * t)
 
     p_min = 1
-    p_max = 5
-    p_pts = 50
+    p_max = 5.5
+    p_pts = 100
     dt = np.around(np.logspace(-p_min, -p_max, num = p_pts), 7)
+    # dt = [0.0175, 0.001]
 
     make_plots(dt, [ForwardEuler, RungeKutta, BackwardEuler, Trapezoid], ode_p2, analytic_solution_p2, target_dir = OUT_DIR)
 
