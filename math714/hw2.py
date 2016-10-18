@@ -45,23 +45,27 @@ class HeatEquationCN:
     def __init__(self, x_lower_bound = 0, x_upper_bound = 1, x_points = 100,
                  u_initial = lambda x: 0, u_analytic = lambda x, t: 0,
                  t_initial = 0, t_final = 1, delta_t = 0.01):
-        self.x = np.linspace(x_lower_bound, x_upper_bound, x_points)
+        self.x = np.linspace(x_lower_bound, x_upper_bound, x_points + 2)
+        # self.x = np.delete(self.x, 0)  # remove boundaries
+        # self.x = np.delete(self.x, -1)
         self.delta_x = self.x[1] - self.x[0]
-        self.x_points = len(self.x)
+        self.x_points = x_points
 
         self.delta_t = delta_t
-        self.t = np.arange(t_initial, t_final + 0.5 * delta_t, delta_t)  # store an array of times
+        self.t = np.arange(t_initial, t_final + 0.5 * delta_t, delta_t)
         self.time_steps = len(self.t)
 
-        self.u = [np.zeros(self.x_points) for _ in self.t]
+        self.u = [np.zeros(self.x_points + 2) for _ in self.t]
         self.u[0] = u_initial(self.x)
         self.time_index = 0
 
         self.u_analytic = u_analytic
 
-        self.r = self.delta_t / (2 * (self.delta_x ** 2))
+        self.r = self.delta_t / (2 * (self.delta_x ** 2))  # lambda is a reserved name...
 
-        self.explicit_matrix = sps.diags([1 * self.r * np.ones(self.x_points - 1), 1 - 2 * self.r * np.ones(self.x_points), 1 * self.r * np.ones(self.x_points)],
+        self.explicit_matrix = sps.diags([1 * self.r * np.ones(self.x_points - 1),
+                                          1 - 2 * self.r * np.ones(self.x_points),
+                                          1 * self.r * np.ones(self.x_points)],
                                          offsets = (-1, 0, 1))
         self.implicit_upper = -1 * self.r * np.ones(self.x_points - 1)
         self.implicit_diag = 1 + 2 * self.r * np.ones(self.x_points)
@@ -69,14 +73,14 @@ class HeatEquationCN:
 
     def solve(self):
         while self.time_index < self.time_steps - 1:
-            rhs = self.explicit_matrix.dot(self.u[self.time_index])
+            rhs = self.explicit_matrix.dot(self.u[self.time_index][1:-1])
             u = tdma(self.implicit_upper, self.implicit_diag, self.implicit_lower, rhs)
 
             self.time_index += 1
-            self.u[self.time_index] = u
+            self.u[self.time_index][1:-1] = u
 
     def attach_u_vs_x_to_axis(self, axis, t_index = 0):
-        line, = axis.plot(self.x, self.u[t_index], label = r'$u(t={})$'.format(self.t[t_index]))
+        line, = axis.plot(self.x, self.u[t_index], label = r'$u(t={})$'.format(np.around(self.t[t_index], 3)))
 
         return line
 
@@ -89,10 +93,10 @@ class HeatEquationCN:
         if overlay_analytic:
             axis.plot(self.x, self.u_analytic(self.x, self.t[t_index]), linestyle = '--', label = r'$u_{\mathrm{analytic}}$')
 
-        title = axis.set_title(r'$u(t={})$ vs. $x$, using {} with $\Delta t = {}$'.format(self.t[t_index], self.method, self.delta_t), fontsize = 15)
+        title = axis.set_title(r'$u(t={})$ vs. $x$, using {} with $\Delta t = {}$'.format(np.around(self.t[t_index], 3), self.method, self.delta_t), fontsize = 15)
         title.set_y(1.05)
         axis.set_xlabel(r'$x$', fontsize = 15)
-        axis.set_ylabel(r'$u(t={})$'.format(self.t[t_index]), fontsize = 15)
+        axis.set_ylabel(r'$u(t={})$'.format(np.around(self.t[t_index], 3)), fontsize = 15)
 
         axis.set_xlim(self.t[0], self.t[-1])
         axis.grid(True, color = 'black', linestyle = ':')
@@ -100,6 +104,29 @@ class HeatEquationCN:
 
         if overlay_analytic:
             plt.legend(loc = 'best')
+
+        utils.save_current_figure(**kwargs)
+
+        plt.close()
+
+    def plot_u_vs_x_vs_t(self, t_indices = (0, 20, 40, 60, 80, 100), **kwargs):
+        fig = plt.figure(figsize = (7, 7 * 2 / 3), dpi = 600)
+        fig.set_tight_layout(True)
+        axis = plt.subplot(111)
+
+        for t_index in t_indices:
+            self.attach_u_vs_x_to_axis(axis, t_index = t_index)
+
+        title = axis.set_title(r'$u(t={})$ vs. $x$, using {} with $\Delta t = {}$'.format(np.around(self.t[t_index], 3), self.method, self.delta_t), fontsize = 15)
+        title.set_y(1.05)
+        axis.set_xlabel(r'$x$', fontsize = 15)
+        axis.set_ylabel(r'$u(t={})$'.format(np.around(self.t[t_index], 3)), fontsize = 15)
+
+        axis.set_xlim(self.t[0], self.t[-1])
+        axis.grid(True, color = 'black', linestyle = ':')
+        axis.tick_params(axis = 'both', which = 'major', labelsize = 10)
+
+        plt.legend(loc = 'best', fontsize = 10)
 
         utils.save_current_figure(**kwargs)
 
@@ -121,5 +148,8 @@ if __name__ == '__main__':
     solver = HeatEquationCN(u_initial = u_init, u_analytic = u_analytic)
     solver.solve()
 
-    for ii, t in enumerate(solver.t):
-        solver.plot_u_vs_x(t_index = ii, name = 'sol_t={}'.format(t), target_dir = OUT_DIR)
+    solver.plot_u_vs_x_vs_t(name = 'sol_vs_t', t_indices = (0, 5, 10, 15, 20, 40, 60, 80, 100), target_dir = OUT_DIR)
+
+    # for ii, t in enumerate(solver.t):
+    #     print(ii)
+    #     solver.plot_u_vs_x(t_index = ii, name = 'sol_t={}'.format(np.around(t, 3)), target_dir = OUT_DIR)
