@@ -48,6 +48,9 @@ class HeatEquationCN:
         self.x = np.linspace(x_lower_bound, x_upper_bound, x_points + 2)
         # self.x = np.delete(self.x, 0)  # remove boundaries
         # self.x = np.delete(self.x, -1)
+
+        # self.x = np.linspace(x_lower_bound, x_upper_bound, x_points)
+        self.x_dense = np.linspace(x_lower_bound, x_upper_bound, x_points * 10)
         self.delta_x = self.x[1] - self.x[0]
         self.x_points = x_points
 
@@ -79,6 +82,26 @@ class HeatEquationCN:
             self.time_index += 1
             self.u[self.time_index][1:-1] = u
 
+    def l_norm(self, u = None, norm = 'inf'):
+        """
+        Return the l^{norm} norm.
+
+        If u is None, uses self.u[self.time_index].
+
+        norm should be 'inf', 1, or 2.
+        """
+        if u is None:
+            u = self.u[self.time_index]
+
+        if norm == 'inf':
+            return np.max(np.abs(u))
+        elif norm == 1:
+            return self.delta_x * np.sum(np.abs(u))
+        elif norm == 2:
+            return np.sqrt(self.delta_x * np.sum(np.abs(u) ** 2))
+        else:
+            raise ValueError('Invalid norm specifier: {}'.format(norm))
+
     def attach_u_vs_x_to_axis(self, axis, t_index = 0):
         line, = axis.plot(self.x, self.u[t_index], label = r'$u(t={})$'.format(np.around(self.t[t_index], 3)))
 
@@ -91,7 +114,7 @@ class HeatEquationCN:
 
         self.attach_u_vs_x_to_axis(axis, t_index = t_index)
         if overlay_analytic:
-            axis.plot(self.x, self.u_analytic(self.x, self.t[t_index]), linestyle = '--', label = r'$u_{\mathrm{analytic}}$')
+            axis.plot(self.x_dense, self.u_analytic(self.x_dense, self.t[t_index]), linestyle = '--', label = r'$u_{\mathrm{analytic}}$')
 
         title = axis.set_title(r'$u(t={})$ vs. $x$, using {} with $\Delta t = {}$'.format(np.around(self.t[t_index], 3), self.method, self.delta_t), fontsize = 15)
         title.set_y(1.05)
@@ -133,6 +156,36 @@ class HeatEquationCN:
         plt.close()
 
 
+def l_inf_norm_vs_time_step_plot(time_steps, u_initial, u_analytic, **kwargs):
+    errors = np.zeros(len(time_steps))
+    for ii, dt in enumerate(time_steps):
+        solver = HeatEquationCN(u_initial = u_initial, u_analytic = u_analytic, delta_t = dt, x_points = 200)
+        solver.solve()
+        errors[ii] = np.abs(solver.l_norm(u = solver.u[-1]) - solver.l_norm(u = solver.u_analytic(solver.x, solver.t[-1])))
+        print(ii, dt, errors[ii])
+
+    utils.xy_plot(time_steps, errors,
+                  title = r'Error in $l^{\infty}$ Norm vs. Time Step',
+                  x_label = r'Time Step $\Delta t$',
+                  log_x = True, log_y = True, **kwargs)
+
+
+def l_inf_norm_vs_delta_x_plot(mesh_points, u_initial, u_analytic, **kwargs):
+    delta_x = np.zeros(len(mesh_points))
+    errors = np.zeros(len(mesh_points))
+    for ii, mesh_points in enumerate(mesh_points):
+        solver = HeatEquationCN(u_initial = u_initial, u_analytic = u_analytic, delta_t = .01, x_points = mesh_points)
+        solver.solve()
+        delta_x[ii] = solver.delta_x
+        errors[ii] = np.abs(solver.l_norm(u = solver.u[-1]) - solver.l_norm(u = solver.u_analytic(solver.x, solver.t[-1])))
+        print(ii, mesh_points, errors[ii])
+
+    utils.xy_plot(delta_x, errors,
+                  title = r'Error in $l^{\infty}$ Norm vs. Mesh Spacing',
+                  x_label = r'Mesh Spacing $\Delta x$',
+                  log_x = True, log_y = True, **kwargs)
+
+
 if __name__ == '__main__':
     OUT_DIR = os.path.join(os.getcwd(), 'hw2')
 
@@ -153,3 +206,12 @@ if __name__ == '__main__':
     # for ii, t in enumerate(solver.t):
     #     print(ii)
     #     solver.plot_u_vs_x(t_index = ii, name = 'sol_t={}'.format(np.around(t, 3)), target_dir = OUT_DIR)
+    # for ii, t in enumerate(solver.t):
+    #     solver.plot_u_vs_x(t_index = ii, name = 'sol_t={}'.format(t), target_dir = OUT_DIR)
+
+    time_steps = np.linspace(.0001, .1, 1000)
+    l_inf_norm_vs_time_step_plot(time_steps, u_initial = u_init, u_analytic = u_analytic, name = 'dt', target_dir = OUT_DIR)
+
+    mesh_points = range(10, 1000, 5)
+    l_inf_norm_vs_delta_x_plot(mesh_points, u_initial = u_init, u_analytic = u_analytic, name = 'dx', target_dir = OUT_DIR)
+

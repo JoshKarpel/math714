@@ -6,6 +6,7 @@ import multiprocessing as mp
 import datetime as dt
 from copy import deepcopy
 
+import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -105,3 +106,61 @@ class Timer:
             return 'Timer started at {}, still running, elapsed time {}'.format(self.start_time, dt.datetime.now() - self.start_time)
         else:
             return 'Timer started at {}, ended at {}, elapsed time {}'.format(self.start_time, self.end_time, self.elapsed_time)
+
+
+def xy_plot(x, *y, legends = None,
+            title = None, x_label = None, y_label = None,
+            x_center = 0, x_range = None,
+            log_x = False, log_y = False,
+            **kwargs):
+    fig = plt.figure(figsize = (7, 7 * 2 / 3), dpi = 600)
+    fig.set_tight_layout(True)
+    axis = plt.subplot(111)
+
+    # plot y vs. x data
+    for ii, yy in enumerate(y):
+        if legends is not None:
+            plt.plot(x, yy, label = legends[ii])
+        else:
+            plt.plot(x, yy)
+
+    # set title
+    if title is not None:
+        title = axis.set_title(r'{}'.format(title), fontsize = 15)
+        title.set_y(1.05)
+
+    # set x label
+    if x_label is not None:
+        axis.set_xlabel(r'{}'.format(x_label), fontsize = 15)
+
+    # set y label
+    if y_label is not None:
+        axis.set_ylabel(r'{}'.format(y_label), fontsize = 15)
+
+    # set x axis limits
+    if x_range is None:
+        lower_limit_x = np.min(x)
+        upper_limit_x = np.max(x)
+    else:
+        lower_limit_x = (x_center - x_range)
+        upper_limit_x = (x_center + x_range)
+
+    axis.set_xlim(lower_limit_x, upper_limit_x)
+
+    # set whether axes are log scale
+    if log_x:
+        axis.set_xscale('log')
+    if log_y:
+        axis.set_yscale('log')
+
+    # grid and tick options
+    axis.grid(True, color = 'gray', linestyle = ':', alpha = 0.9)
+    axis.tick_params(axis = 'both', which = 'major', labelsize = 10)
+
+    # draw legend
+    if legends is not None:
+        axis.legend(loc = 'best', fontsize = 12)
+
+    save_current_figure(**kwargs)
+
+    plt.close()
