@@ -1,14 +1,15 @@
 __author__ = 'Josh Karpel'
 
-import os
+import datetime as dt
 import functools
 import multiprocessing as mp
-import datetime as dt
+import os
 from copy import deepcopy
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
+np.set_printoptions(precision = 3, linewidth = 200)
 
 def ensure_dir_exists(path):
     """Ensure that the directory tree to the path exists."""

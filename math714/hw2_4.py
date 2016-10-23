@@ -6,37 +6,47 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sps
 
-from math714.hw2_3 import tdma
 from math714 import utils
+from math714.hw2_3 import tdma
 
 
 class ReactionDiffusionSO:
-    def __init__(self, points = 100, u_init = lambda x, y: 1, epsilon = 0.05,
+    def __init__(self, points = 100, u_init = lambda x, y: 1, epsilon = 0.05, boundary = -1,
                  t_initial = 0, t_final = 1, delta_t = 0.01):
-        self.points = points
-        self.points_total = points ** 2
-        self.x, self.y = np.linspace(0, 1, points), np.linspace(0, 1, points)
+        self.dim_points = points + 2
+        self.mesh_points = self.dim_points ** 2
+        self.x, self.y = np.linspace(0, 1, self.dim_points), np.linspace(0, 1, self.dim_points)
         self.x_mesh, self.y_mesh = np.meshgrid(self.x, self.y, indexing = 'ij')
         self.mesh_shape = np.shape(self.x_mesh)
         self.delta_x = self.x[1] - self.x[0]
 
-        self.u = u_init(self.x_mesh, self.y_mesh)
         self.epsilon = epsilon
+        self.boundary = boundary
+
+        self.u = self.impose_boundary(u_init(self.x_mesh, self.y_mesh))
 
         self.delta_t = delta_t
         self.t = np.arange(t_initial, t_final + 0.5 * delta_t, delta_t)
         self.time_steps = len(self.t)
         self.time_index = 0
 
-        self.r = self.delta_t / (2 * (self.delta_x ** 2))  # lambda is a reserved name...
+        self.r = (self.delta_t / 2) / (2 * (self.delta_x ** 2))  # lambda is a reserved name...
 
-        self.explicit_matrix = sps.diags([1 * self.r * np.ones(self.points_total - 1),
-                                          1 - 2 * self.r * np.ones(self.points_total),
-                                          1 * self.r * np.ones(self.points_total)],
+        diag = -2 * self.r * np.ones(self.mesh_points)
+
+        off_diag = np.zeros(self.mesh_points - 1)
+        for ii in range(self.mesh_points - 1):
+            if (ii + 1) % self.dim_points != 0:
+                off_diag[ii] = 1
+        off_diag *= self.r
+
+        self.explicit_matrix = sps.diags([off_diag,
+                                          1 + diag,
+                                          off_diag],
                                          offsets = (-1, 0, 1))
-        self.implicit_upper = -1 * self.r * np.ones(self.points_total - 1)
-        self.implicit_diag = 1 + 2 * self.r * np.ones(self.points_total)
-        self.implicit_lower = -1 * self.r * np.ones(self.points_total - 1)
+        self.implicit_upper = -off_diag
+        self.implicit_diag = 1 - diag
+        self.implicit_lower = -off_diag
 
     def plot_u(self, colormesh = False, postfix = '', **kwargs):
         fig = plt.figure(figsize = (7, 7 * .75), dpi = 600)
@@ -48,8 +58,12 @@ class ReactionDiffusionSO:
         plt.clabel(contour, inline = 1, fontsize = 10)
 
         if colormesh:
+            vmin = min(np.min(self.u), -1)
+            vmax = max(np.max(self.u), 1)
+
             color = axis.pcolormesh(self.x_mesh, self.y_mesh, self.u,
-                                    cmap = plt.get_cmap('gray'), shading = 'gouraud')
+                                    cmap = plt.get_cmap('gray'), shading = 'gouraud',
+                                    vmin = vmin, vmax = vmax)
 
             cbar = plt.colorbar(color)
 
@@ -57,7 +71,7 @@ class ReactionDiffusionSO:
 
         axis.set_xlabel(r'$x$', fontsize = 15)
         axis.set_ylabel(r'$y$', fontsize = 15)
-        title = axis.set_title(r'$u(x,y, t = {})$'.format(self.t[self.time_index]), fontsize = 15)
+        title = axis.set_title(r'$u(x,y, t = {})$'.format(np.around(self.t[self.time_index], 4)), fontsize = 15)
         title.set_y(1.05)
 
         utils.save_current_figure('RDSO_u' + postfix, **kwargs)
@@ -85,11 +99,22 @@ class ReactionDiffusionSO:
 
         return np.reshape(vector, self.mesh_shape, wrap)
 
+    def impose_boundary(self, u):
+        u[0, :] = self.boundary
+        u[-1, :] = self.boundary
+        u[:, 0] = self.boundary
+        u[:, -1] = self.boundary
+
+        return u
+
     def evolve(self):
-        u_1 = self.wrap_vector(self.explicit_matrix.dot(self.flatten_mesh(self.u, 'x')), 'x')
-        u_2 = tdma(self.implicit_upper, self.implicit_diag, self.implicit_lower, self.flatten_mesh(u_1, 'y'))
-        u_3 = self.wrap_vector(self.explicit_matrix.dot(u_2), 'y')
-        u_4 = self.wrap_vector(tdma(self.implicit_upper, self.implicit_diag, self.implicit_lower, self.flatten_mesh(u_3, 'x')), 'x')
+        u_1 = self.impose_boundary(self.wrap_vector(self.explicit_matrix.dot(self.flatten_mesh(self.u, 'x')), 'x'))
+
+        u_2 = self.impose_boundary(self.wrap_vector(tdma(self.implicit_upper, self.implicit_diag, self.implicit_lower, self.flatten_mesh(u_1, 'y')), 'y'))
+
+        u_3 = self.impose_boundary(self.wrap_vector(self.explicit_matrix.dot(self.flatten_mesh(u_2, 'y')), 'y'))
+
+        u_4 = self.impose_boundary(self.wrap_vector(tdma(self.implicit_upper, self.implicit_diag, self.implicit_lower, self.flatten_mesh(u_3, 'x')), 'x'))
 
         self.u = u_4
 
@@ -117,9 +142,9 @@ if __name__ == '__main__':
 
     a = .1
     b = .2
-    alpha = np.pi / 4
+    alpha = np.pi / 3
 
-    rdso = ReactionDiffusionSO(u_init = ellipse(a, b, alpha), points = 200)
+    rdso = ReactionDiffusionSO(u_init = ellipse(a, b, alpha, inside = 1, outside = -1), points = 100, delta_t = 0.001)
 
     rdso.plot_u(target_dir = OUT_DIR)
     rdso.plot_u(colormesh = True, target_dir = OUT_DIR)

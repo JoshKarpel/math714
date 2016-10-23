@@ -64,7 +64,7 @@ class HeatEquationCN:
 
         self.explicit_matrix = sps.diags([1 * self.r * np.ones(self.x_points - 1),
                                           1 - 2 * self.r * np.ones(self.x_points),
-                                          1 * self.r * np.ones(self.x_points)],
+                                          1 * self.r * np.ones(self.x_points - 1)],
                                          offsets = (-1, 0, 1))
         self.implicit_upper = -1 * self.r * np.ones(self.x_points - 1)
         self.implicit_diag = 1 + 2 * self.r * np.ones(self.x_points)
