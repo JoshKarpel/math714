@@ -11,6 +11,7 @@ import numpy as np
 
 np.set_printoptions(precision = 3, linewidth = 200)
 
+
 def ensure_dir_exists(path):
     """Ensure that the directory tree to the path exists."""
     split_path = os.path.splitext(path)
@@ -112,6 +113,7 @@ class Timer:
 def xy_plot(x, *y, legends = None,
             title = None, x_label = None, y_label = None,
             x_center = 0, x_range = None,
+            y_lower_lim = None, y_upper_lim = None,
             log_x = False, log_y = False,
             **kwargs):
     fig = plt.figure(figsize = (7, 7 * 2 / 3), dpi = 600)
@@ -147,6 +149,9 @@ def xy_plot(x, *y, legends = None,
         upper_limit_x = (x_center + x_range)
 
     axis.set_xlim(lower_limit_x, upper_limit_x)
+
+    if y_lower_lim is not None and y_upper_lim is not None:
+        axis.set_ylim(y_lower_lim, y_upper_lim)
 
     # set whether axes are log scale
     if log_x:
