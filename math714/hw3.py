@@ -77,8 +77,34 @@ class UpwindSolver(LinearHyperbolicSystemSolver):
     def __init__(self, **kwargs):
         super(UpwindSolver, self).__init__(**kwargs)
 
+        self.r = self.delta_t / self.delta_x
+
+        self.a_plus = np.array([[1 / np.sqrt(2), 1 / 2], [1, 1 / np.sqrt(2)]])
+        self.a_minus = np.array([[-1 / np.sqrt(2), 1 / 2], [1, -1 / np.sqrt(2)]])
+
     def solve(self):
         while self.time(self.time_index) < self.t_final:
+            current_u = self.u[self.time_index]
+            current_v = self.v[self.time_index]
+
+            new_u = current_u.copy()
+            new_v = current_v.copy()
+
+            new_u[1:-1] += -self.r * self.a_plus[0, 0] * (current_u[1:-1] - current_u[:-2])
+            new_u[1:-1] += -self.r * self.a_plus[0, 1] * (current_v[1:-1] - current_v[:-2])
+
+            new_v[1:-1] += -self.r * self.a_plus[1, 0] * (current_u[1:-1] - current_u[:-2])
+            new_v[1:-1] += -self.r * self.a_plus[1, 1] * (current_v[1:-1] - current_v[:-2])
+
+            new_u[1:-1] += -self.r * self.a_minus[0, 0] * (current_u[2:] - current_u[1:-1])
+            new_u[1:-1] += -self.r * self.a_minus[0, 1] * (current_v[2:] - current_v[1:-1])
+
+            new_v[1:-1] += -self.r * self.a_minus[1, 0] * (current_u[2:] - current_u[1:-1])
+            new_v[1:-1] += -self.r * self.a_minus[1, 1] * (current_v[2:] - current_v[1:-1])
+
+            self.u[self.time_index + 1] = new_u
+            self.v[self.time_index + 1] = new_v
+
             self.time_index += 1
 
 
@@ -157,34 +183,63 @@ if __name__ == '__main__':
     def w_p(x, t):
         xi = x - (np.sqrt(2) * t)
 
-        return np.where(np.less_equal(xi, 0), 1, -np.sqrt(2))
+        return np.where(np.less_equal(xi, 0), 1 / 2, - 1 / (2 * np.sqrt(2)))
 
 
     def w_m(x, t):
         xi = x + (np.sqrt(2) * t)
 
-        return np.where(np.less_equal(xi, 0), 1, np.sqrt(2))
+        return np.where(np.less_equal(xi, 0), 1 / 2, 1 / (2 * np.sqrt(2)))
 
 
     def u(x, t):
-        return (w_p(x, t) + w_m(x, t)) / 2
+        return w_p(x, t) + w_m(x, t)
 
 
     def v(x, t):
-        return (w_p(x, t) - w_m(x, t)) / (2 * np.sqrt(2))
+        return (w_p(x, t) - w_m(x, t)) * np.sqrt(2)
 
 
     matrix = np.array([[0, 1], [2, 0]])
 
+    ############
+
+    OUT_DIR_one = os.path.join(OUT_DIR, '100')
+
     lf = LFSolver(u_analytic = u, v_analytic = v, matrix = matrix,
-                  t_final = .01, delta_t = .01, x_points = 100)
+                  t_final = .35, delta_t = .01, x_points = 100)
     lw = LWSolver(u_analytic = u, v_analytic = v, matrix = matrix,
-                  t_final = .01, delta_t = .01, x_points = 100)
+                  t_final = .35, delta_t = .01, x_points = 100)
+    up = UpwindSolver(u_analytic = u, v_analytic = v, matrix = matrix,
+                      t_final = .35, delta_t = .01, x_points = 100)
 
     lf.solve()
     lw.solve()
+    up.solve()
 
     for time_index in lf.u:
         print(time_index)
-        lf.plot_uv_vs_t(time_index, target_dir = OUT_DIR)
-        lw.plot_uv_vs_t(time_index, target_dir = OUT_DIR)
+        lf.plot_uv_vs_t(time_index, target_dir = OUT_DIR_one)
+        lw.plot_uv_vs_t(time_index, target_dir = OUT_DIR_one)
+        up.plot_uv_vs_t(time_index, target_dir = OUT_DIR_one)
+
+    ############
+
+    OUT_DIR_two = os.path.join(OUT_DIR, '200')
+
+    lf = LFSolver(u_analytic = u, v_analytic = v, matrix = matrix,
+                  t_final = .35, delta_t = .005, x_points = 200)
+    lw = LWSolver(u_analytic = u, v_analytic = v, matrix = matrix,
+                  t_final = .35, delta_t = .005, x_points = 200)
+    up = UpwindSolver(u_analytic = u, v_analytic = v, matrix = matrix,
+                      t_final = .35, delta_t = .005, x_points = 200)
+
+    lf.solve()
+    lw.solve()
+    up.solve()
+
+    for time_index in lf.u:
+        print(time_index)
+        lf.plot_uv_vs_t(time_index, target_dir = OUT_DIR_two)
+        lw.plot_uv_vs_t(time_index, target_dir = OUT_DIR_two)
+        up.plot_uv_vs_t(time_index, target_dir = OUT_DIR_two)
