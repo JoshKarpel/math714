@@ -51,7 +51,7 @@ class LevelSetSolver:
         mag_grad_u = np.sqrt((grad_u_x ** 2) + (grad_u_y ** 2))
         kappa = self.div(grad_u_x / mag_grad_u, grad_u_y / mag_grad_u)
 
-        delta_t = 0.25 * self.delta_x / np.max(kappa)
+        delta_t = 0.25 * self.delta_x / np.max(np.abs(kappa))
         if self.delta_t >= delta_t:
             self.delta_t = delta_t
 
